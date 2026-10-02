@@ -29,6 +29,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        // UserService 绑定需要应用上下文
+        ShizukuManager.init(applicationContext)
+
         setContent {
             ShakeOffTheme {
                 ShakeOffApp()

@@ -140,7 +140,11 @@ fun HomeScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .pullToRefresh(pullState, onRefresh)
+                        .pullToRefresh(
+                            isRefreshing = state.isLoading,
+                            onRefresh = onRefresh,
+                            state = pullState
+                        )
                 ) {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
@@ -212,7 +216,7 @@ private fun AppRow(
         // 应用图标
         val bitmap = remember(app.packageName) {
             runCatching {
-                app.icon.toBitmap(width = ICON_SIZE_PX, height = ICON_SIZE_PX).asImageBitmap()
+                app.icon?.toBitmap(width = ICON_SIZE_PX, height = ICON_SIZE_PX)?.asImageBitmap()
             }.getOrNull()
         }
         if (bitmap != null) {

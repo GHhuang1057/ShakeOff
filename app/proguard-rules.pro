@@ -12,3 +12,8 @@
 
 # 保留注解与泛型签名，便于 Shizuku AIDL 反射工作
 -keepattributes Signature,InnerClasses,EnclosingMethod,RuntimeVisibleAnnotations
+
+# UserService 通过 AIDL Binder 通信，Stub 实现类被混淆会导致运行时崩溃
+-keep class io.github.geekhonize.shakeoff.ICommandService { *; }
+-keep class * implements io.github.geekhonize.shakeoff.ICommandService { *; }
+-keep class io.github.geekhonize.shakeoff.util.CommandService { *; }

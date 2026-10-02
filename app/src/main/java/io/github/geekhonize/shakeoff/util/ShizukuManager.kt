@@ -1,11 +1,14 @@
 package io.github.geekhonize.shakeoff.util
 
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
+import android.os.IBinder
 import android.provider.Settings
+import android.util.Log
+import io.github.geekhonize.shakeoff.ICommandService
 import rikka.shizuku.Shizuku
 
 /**
@@ -26,26 +29,71 @@ enum class ShizukuStatus {
 }
 
 /**
- * Shizuku 封装：负责状态检测、权限请求与提权执行命令。
+ * 以 shell 权限执行命令的 UserService 实现。
+ *
+ * Shizuku 13.1.1 起 `Shizuku.newProcess` 已被废弃并转为私有，
+ * 因此必须通过 UserService 在特权进程中执行命令。
+ */
+class CommandService : ICommandService.Stub() {
+
+    override fun exec(cmd: Array<out String?>?): String? {
+        if (cmd == null || cmd.isEmpty()) return "ERROR:empty command"
+        return try {
+            val process = ProcessBuilder(*cmd).redirectErrorStream(true).start()
+            val output = process.inputStream.bufferedReader().use { it.readText() }
+            process.waitFor()
+            output
+        } catch (e: Exception) {
+            "ERROR:${e.message}"
+        }
+    }
+}
+
+/**
+ * Shizuku 封装：负责状态检测、权限请求与通过 UserService 执行命令。
  */
 object ShizukuManager {
 
     private const val TAG = "ShizukuManager"
     private const val SHIZUKU_PACKAGE = "moe.shizuku.privileged.api"
+    private const val SHIZUKU_DOWNLOAD_URL =
+        "https://github.com/RikkaApps/Shizuku/releases/latest"
 
     /** 权限请求码 */
     const val REQUEST_CODE = 1001
 
     /**
-     * Shizuku 授权结果回调，由 Activity 注册后转发。
+     * 权限请求结果回调。
      */
     var onPermissionResult: ((Boolean) -> Unit)? = null
 
     private val permissionListener =
         rikka.shizuku.Shizuku.OnRequestPermissionResultListener { _, grantResult ->
-            val granted = grantResult == PackageManager.PERMISSION_GRANTED
-            onPermissionResult?.invoke(granted)
+            onPermissionResult?.invoke(grantResult == PackageManager.PERMISSION_GRANTED)
         }
+
+    @Volatile
+    private var remoteService: ICommandService? = null
+
+    @Volatile
+    private var appContext: Context? = null
+
+    private val serviceConnection = object : rikka.shizuku.ShizukuServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
+            remoteService = binder?.let { ICommandService.Stub.asInterface(it) }
+        }
+
+        override fun onServiceDisconnected() {
+            remoteService = null
+        }
+    }
+
+    /**
+     * 保存应用上下文，UserServiceArgs 绑定时需要。
+     */
+    fun init(context: Context) {
+        appContext = context.applicationContext
+    }
 
     /**
      * 获取当前 Shizuku 状态。
@@ -63,8 +111,6 @@ object ShizukuManager {
     fun isInstalled(context: Context): Boolean = try {
         context.packageManager.getPackageInfo(SHIZUKU_PACKAGE, 0)
         true
-    } catch (e: PackageManager.NameNotFoundException) {
-        false
     } catch (e: Exception) {
         false
     }
@@ -88,7 +134,7 @@ object ShizukuManager {
     }
 
     /**
-     * 注册权限回调，需在 Activity 生命周期内调用。
+     * 注册权限回调。
      */
     fun registerPermissionListener() {
         try {
@@ -111,8 +157,6 @@ object ShizukuManager {
 
     /**
      * 向 Shizuku 请求授权。
-     *
-     * @return 是否成功发起请求
      */
     fun requestPermission(): Boolean = try {
         if (isRunning()) {
@@ -126,34 +170,66 @@ object ShizukuManager {
     }
 
     /**
-     * 以 shell 身份执行一条命令并返回标准输出。
+     * 确保 UserService 已绑定。
      *
-     * @param cmd 命令与参数，例如 ["appops", "get", pkg, "OP_MOTION_SENSORS"]
-     * @return 命令输出，失败时返回 null
+     * 绑定是异步的，首次调用时可能尚未建立连接，
+     * 此时会等待 [BIND_TIMEOUT_MS] 毫秒。
      */
-    fun exec(cmd: List<String>): String? = try {
+    private fun ensureService(): ICommandService? {
         if (!isRunning() || !hasPermission()) return null
+        remoteService?.let { return it }
 
-        val process = Shizuku.newProcess(cmd.toTypedArray(), null, null)
-        process.inputStream.bufferedReader().use { it.readText() }.also {
-            // 等待进程结束，避免管道未排空
-            process.waitFor()
+        val context = appContext ?: return null
+        val args = Shizuku.UserServiceArgs(
+            ComponentName(context.packageName, CommandService::class.java.name)
+        )
+            .daemon(true)
+            .tag("shakeoff.command")
+            .version(1)
+
+        try {
+            Shizuku.bindUserService(args, serviceConnection)
+        } catch (e: Throwable) {
+            Log.e(TAG, "bindUserService failed", e)
+            return null
         }
-    } catch (e: Throwable) {
-        null
+
+        // 等待异步回调
+        val deadline = System.currentTimeMillis() + BIND_TIMEOUT_MS
+        while (System.currentTimeMillis() < deadline) {
+            remoteService?.let { return it }
+            try {
+                Thread.sleep(50)
+            } catch (e: InterruptedException) {
+                Thread.currentThread().interrupt()
+                return null
+            }
+        }
+        return remoteService
     }
 
     /**
-     * 打开 Shizuku 的下载页（未安装时）。
+     * 以 shell 权限执行一条命令。
+     *
+     * @param cmd 命令与参数
+     * @return 标准输出；失败时返回 null
+     */
+    fun exec(cmd: List<String>): String? {
+        val service = ensureService() ?: return null
+        return try {
+            val result = service.exec(cmd.toTypedArray())
+            if (result != null && result.startsWith("ERROR:")) null else result
+        } catch (e: Throwable) {
+            Log.e(TAG, "exec failed", e)
+            null
+        }
+    }
+
+    /**
+     * 打开 Shizuku 下载页（未安装时）。
      */
     fun openShizukuDownload(context: Context) {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(SHIZUKU_DOWNLOAD_URL))
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        try {
-            context.startActivity(intent)
-        } catch (e: Exception) {
-            // ignore
-        }
+        openUrl(context, SHIZUKU_DOWNLOAD_URL)
     }
 
     /**
@@ -170,7 +246,7 @@ object ShizukuManager {
     }
 
     /**
-     * 跳转到目标应用的详情页，引导用户手动关闭传感器权限。
+     * 跳转到目标应用详情页，引导用户手动关闭传感器权限。
      */
     fun openAppDetails(context: Context, packageName: String) {
         val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
@@ -184,6 +260,15 @@ object ShizukuManager {
         }
     }
 
-    private const val SHIZUKU_DOWNLOAD_URL =
-        "https://github.com/RikkaApps/Shizuku/releases/latest"
+    private fun openUrl(context: Context, url: String) {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        try {
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            // ignore
+        }
+    }
+
+    private const val BIND_TIMEOUT_MS = 3000L
 }
