@@ -3,9 +3,9 @@ package io.github.geekhonize.shakeoff.util
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.IBinder
 import android.provider.Settings
 import android.util.Log
 import io.github.geekhonize.shakeoff.ICommandService
@@ -36,10 +36,12 @@ enum class ShizukuStatus {
  */
 class CommandService : ICommandService.Stub() {
 
-    override fun exec(cmd: Array<out String?>?): String? {
+    override fun exec(cmd: Array<String?>?): String? {
         if (cmd == null || cmd.isEmpty()) return "ERROR:empty command"
         return try {
-            val process = ProcessBuilder(*cmd).redirectErrorStream(true).start()
+            val builder = ProcessBuilder()
+            cmd.forEach { builder.command(it) }
+            val process = builder.redirectErrorStream(true).start()
             val output = process.inputStream.bufferedReader().use { it.readText() }
             process.waitFor()
             output
@@ -78,14 +80,8 @@ object ShizukuManager {
     @Volatile
     private var appContext: Context? = null
 
-    private val serviceConnection = object : rikka.shizuku.ShizukuServiceConnection {
-        override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
-            remoteService = binder?.let { ICommandService.Stub.asInterface(it) }
-        }
-
-        override fun onServiceDisconnected() {
-            remoteService = null
-        }
+    private val serviceConnection = ServiceConnection { _, binder ->
+        remoteService = binder?.let { ICommandService.Stub.asInterface(it) }
     }
 
     /**
