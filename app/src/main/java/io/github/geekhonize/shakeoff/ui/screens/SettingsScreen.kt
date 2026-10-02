@@ -106,7 +106,7 @@ fun SettingsScreen(
 
             SettingsItem(
                 title = "关于",
-                subtitle = "${BuildConfig.VERSION_NAME} · GeekHonzie Software"
+                subtitle = "${BuildConfig.VERSION_NAME} · Geekhonize Software"
             ) {
                 onOpenAbout()
             }
@@ -142,7 +142,7 @@ private fun SettingsItem(
 }
 
 /**
- * 关于页：GeekHonzie Software、huang1057、版本号。
+ * 关于页：Geekhonize Software、huang1057、版本号。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -187,7 +187,7 @@ fun AboutScreen(onBack: () -> Unit) {
 
             InfoRow(label = "版本", value = BuildConfig.VERSION_NAME)
             InfoRow(label = "版本号", value = BuildConfig.VERSION_CODE.toString())
-            InfoRow(label = "组织", value = "GeekHonzie Software")
+            InfoRow(label = "组织", value = "Geekhonize Software")
             InfoRow(label = "作者", value = "huang1057")
             InfoRow(label = "包名", value = BuildConfig.APPLICATION_ID)
             InfoRow(label = "开源协议", value = "GPL-3.0")

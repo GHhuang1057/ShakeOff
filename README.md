@@ -98,7 +98,7 @@ app/src/main/java/io/github/geekhonzie/shakeoff/
 基于 [GPL-3.0](LICENSE) 开源。
 
 作者：**huang1057**  
-组织：**GeekHonzie Software**
+组织：**Geekhonize Software**
 
 ## 免责声明
 
