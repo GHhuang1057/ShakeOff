@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ShakeOff</string>
+    <string name="app_subtitle">摇一摇广告拦截器</string>
+
+    <!-- 首页 -->
+    <string name="search_hint">搜索应用名称或包名</string>
+    <string name="show_system_apps">显示系统应用</string>
+    <string name="no_match_app">没有匹配的应用</string>
+    <string name="shake_blocked">摇一摇：已屏蔽</string>
+    <string name="shake_normal">摇一摇：正常</string>
+    <string name="cd_refresh">刷新</string>
+    <string name="cd_settings">设置</string>
+    <string name="cd_shizuku">Shizuku 授权</string>
+
+    <!-- Shizuku 状态 -->
+    <string name="shizuku_not_installed">Shizuku 未安装</string>
+    <string name="shizuku_not_running">Shizuku 未运行</string>
+    <string name="shizuku_not_granted">Shizuku 未授权</string>
+    <string name="shizuku_granted">Shizuku 已授权</string>
+
+    <!-- 操作提示 -->
+    <string name="toast_install_shizuku">请先安装 Shizuku</string>
+    <string name="toast_start_shizuku">请先启动 Shizuku</string>
+    <string name="toast_granted">Shizuku 已授权</string>
+    <string name="toast_request_sent">已发起授权请求</string>
+    <string name="toast_request_failed">授权请求失败</string>
+    <string name="toast_permission_denied">Shizuku 授权被拒绝</string>
+    <string name="toast_blocked">已屏蔽摇一摇</string>
+    <string name="toast_restored">已恢复传感器权限</string>
+    <string name="toast_failed">操作失败，请重试</string>
+    <string name="toast_need_shizuku">请先授权 Shizuku，或手动关闭该应用的传感器权限</string>
+    <string name="toast_manual_sensor">请在系统设置中手动关闭该应用的传感器权限</string>
+
+    <!-- 设置页 -->
+    <string name="settings">设置</string>
+    <string name="about_shizuku">关于 Shizuku</string>
+    <string name="shizuku_desc">Shizuku 是一个通过 ADB 或 root 方式为应用提供高权限的开源工具。ShakeOff 依赖它以 shell 身份执行 appops 命令来关闭目标应用的传感器权限。使用前请先安装并启动 Shizuku，然后在 Shizuku 中授予 ShakeOff 权限。若不使用 Shizuku，也可手动进入系统设置关闭目标应用的传感器权限。</string>
+    <string name="open_source_license">开源许可</string>
+    <string name="open_source_license_desc">查看本应用使用的开源库及其许可证</string>
+    <string name="disclaimer">免责声明</string>
+    <string name="disclaimer_desc">使用前请阅读</string>
+    <string name="about">关于</string>
+    <string name="version">版本</string>
+    <string name="version_code">版本号</string>
+    <string name="organization">组织</string>
+    <string name="author">作者</string>
+    <string name="package_name">包名</string>
+    <string name="license">开源协议</string>
+    <string name="organization_value">GeekHonzie Software</string>
+    <string name="author_value">huang1057</string>
+    <string name="license_value">GPL-3.0</string>
+    <string name="disclaimer_full">本应用按「现状」提供，不对任何因使用本应用导致的直接或间接损失承担责任。用户应自行确保操作符合当地法律法规，并自行承担全部后果。本项目开源，仅供学习交流使用。</string>
+    <string name="cd_back">返回</string>
+</resources>

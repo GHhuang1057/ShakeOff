@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- 本应用不持久化用户数据，无需备份 -->
+    <exclude domain="sharedpref" path="." />
+</full-backup-content>

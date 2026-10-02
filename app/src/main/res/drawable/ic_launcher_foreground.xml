@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 摇一摇 + 禁止标记的简约矢量图标 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 手机主体 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M38,30h32a4,4 0,0 1,4 4v40a4,4 0,0 1,-4 4h-32a4,4 0,0 1,-4 -4v-40a4,4 0,0 1,4 -4z" />
+    <!-- 屏幕留空区域 -->
+    <path
+        android:fillColor="#3D5AFE"
+        android:pathData="M38,36h32v30h-32z" />
+
+    <!-- 禁止圆环 -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="4"
+        android:fillColor="#00000000"
+        android:pathData="M64,60m-11,0a11,11 0,1 1,22 0a11,11 0,1 1,-22 0" />
+    <!-- 斜杠 -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:pathData="M57,67 L71,53" />
+</vector>
