@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.IBinder
 import android.provider.Settings
 import android.util.Log
 import io.github.geekhonize.shakeoff.ICommandService
@@ -80,8 +81,14 @@ object ShizukuManager {
     @Volatile
     private var appContext: Context? = null
 
-    private val serviceConnection = ServiceConnection { _, binder ->
-        remoteService = binder?.let { ICommandService.Stub.asInterface(it) }
+    private val serviceConnection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
+            remoteService = binder?.let { ICommandService.Stub.asInterface(it) }
+        }
+
+        override fun onServiceDisconnected(name: ComponentName?) {
+            remoteService = null
+        }
     }
 
     /**
