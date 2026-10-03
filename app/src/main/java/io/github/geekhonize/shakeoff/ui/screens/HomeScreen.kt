@@ -14,10 +14,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Android
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Vibration
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -26,6 +30,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -43,8 +48,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import io.github.geekhonize.shakeoff.data.AppInfo
+import io.github.geekhonize.shakeoff.strategy.ControlMode
 import io.github.geekhonize.shakeoff.ui.HomeUiState
-import io.github.geekhonize.shakeoff.util.ShizukuStatus
 import io.github.geekhonize.shakeoff.util.shizukuStatusColor
 import io.github.geekhonize.shakeoff.util.shizukuStatusText
 
@@ -100,6 +105,57 @@ fun HomeScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
+            // 模式 Chip 行：显示当前生效模式与广告数量
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // 当前模式
+                AssistChip(
+                    onClick = onOpenSettings,
+                    label = {
+                        Text(
+                            text = state.activeMode.label,
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Bolt,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    },
+                    colors = AssistChipDefaults.assistChipColors(
+                        labelColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        leadingIconContentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                )
+
+                // 降级提示
+                if (state.activeMode != state.requestedMode) {
+                    Text(
+                        text = "已从「${state.requestedMode.label}」降级",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                // 广告应用计数
+                if (state.adwareCount > 0) {
+                    Text(
+                        text = "广告 ${state.adwareCount}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+
             // 搜索框
             OutlinedTextField(
                 value = state.query,
@@ -161,7 +217,8 @@ fun HomeScreen(
                         ) { app ->
                             AppRow(
                                 app = app,
-                                enabled = state.shizukuStatus == ShizukuStatus.GRANTED,
+                                // 无障碍模式无法直接改权限，开关置灰
+                                enabled = state.activeMode != ControlMode.ACCESSIBILITY,
                                 onToggle = { onToggleSensor(app, it) }
                             )
                             HorizontalDivider()
@@ -236,14 +293,38 @@ private fun AppRow(
         Spacer(modifier = Modifier.size(12.dp))
 
         Column(modifier = Modifier.weight(1f)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = app.label,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                // 红色「广告」标签
+                if (app.isAdware) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.errorContainer,
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Text(
+                            text = "广告",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                        )
+                    }
+                }
+            }
             Text(
-                text = app.label,
-                style = MaterialTheme.typography.titleMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = app.packageName,
+                text = if (app.isAdware && app.adCategory.isNotEmpty()) {
+                    "${app.packageName} · ${app.adCategory}"
+                } else {
+                    app.packageName
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,

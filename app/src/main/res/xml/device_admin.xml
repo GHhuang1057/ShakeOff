@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 设备管理员策略声明 -->
+<device-admin>
+    <uses-policies>
+        <!-- 允许读取/调整应用的权限授予状态（Device Owner 模式核心能力） -->
+        <grant-runtime-permission />
+        <revoke-runtime-permission />
+        <set-permission-grant-state />
+    </uses-policies>
+</device-admin>

@@ -52,4 +52,43 @@
     <string name="license_value">GPL-3.0</string>
     <string name="disclaimer_full">本应用按「现状」提供，不对任何因使用本应用导致的直接或间接损失承担责任。用户应自行确保操作符合当地法律法规，并自行承担全部后果。本项目开源，仅供学习交流使用。</string>
     <string name="cd_back">返回</string>
+    <!-- 模式 -->
+    <string name="mode_chip">模式</string>
+    <string name="mode_shizuku">Shizuku 模式</string>
+    <string name="mode_device_owner">Device Owner 模式</string>
+    <string name="mode_accessibility">无障碍模式</string>
+    <string name="mode_select">控制模式</string>
+    <string name="mode_available">可用</string>
+    <string name="mode_unavailable">不可用</string>
+    <string name="mode_degraded_toast">当前模式不可用，已降级为 %1$s</string>
+    <string name="mode_shizuku_desc">通过 Shizuku 以 shell 权限执行 appops 命令，可精准开关传感器权限。</string>
+    <string name="mode_device_owner_desc">通过设备管理员授予/撤销传感器权限，无需 Shizuku，但需将 ShakeOff 设为设备所有者。</string>
+    <string name="mode_accessibility_desc">读取界面节点自动点击「跳过」「关闭」等按钮，仅能在广告弹出时拦截，属保底方案。</string>
+    <string name="mode_dpm_command_label">Device Owner 配置命令：</string>
+    <string name="mode_open_accessibility">开启无障碍服务</string>
+    <string name="mode_dpm_warning">手机不能有已登录的账户，必要时需恢复出厂设置后执行该命令。</string>
+
+    <!-- 广告监控 -->
+    <string name="adware_tag">广告</string>
+    <string name="monitor_title">监控设置</string>
+    <string name="monitor_enable">实时监控广告应用</string>
+    <string name="monitor_enable_desc">新应用安装时与特征库比对，命中则发通知提醒</string>
+    <string name="monitor_auto_block">自动拦截</string>
+    <string name="monitor_auto_block_desc">检测到广告应用后自动禁用其传感器权限</string>
+    <string name="monitor_daemon">Shell 守护进程</string>
+    <string name="monitor_daemon_desc">以 shell 权限后台监控安装事件与广告日志，仅 Shizuku 模式可用</string>
+    <string name="monitor_daemon_running">运行中</string>
+    <string name="monitor_daemon_stopped">未运行</string>
+    <string name="adware_notify_title">检测到疑似广告应用</string>
+    <string name="adware_notify_text">%1$s 命中广告特征库，建议卸载</string>
+    <string name="adware_found_count">发现 %1$d 个疑似广告应用</string>
+    <string name="event_log_title">拦截记录</string>
+    <string name="event_log_empty">暂无拦截记录</string>
+    <string name="event_log_clear">清空记录</string>
+    <string name="daemon_events_title">守护进程日志</string>
+
+    <!-- 设备管理员与无障碍 -->
+    <string name="device_admin_description">Device Owner 模式需要此权限，用于管理其他应用的传感器权限授予状态。</string>
+    <string name="accessibility_service_label">ShakeOff 广告跳过</string>
+    <string name="accessibility_service_description">自动识别并点击「跳过」「关闭」等广告按钮。本服务仅在本机判断按钮文本，不收集、不存储、不上传任何屏幕内容。</string>
 </resources>

@@ -17,3 +17,12 @@
 -keep class io.github.geekhonize.shakeoff.ICommandService { *; }
 -keep class * implements io.github.geekhonize.shakeoff.ICommandService { *; }
 -keep class io.github.geekhonize.shakeoff.util.CommandService { *; }
+
+# 无障碍服务由系统在运行时按类名实例化，混淆会导致服务无法启动
+-keep class io.github.geekhonize.shakeoff.accessibility.AdSkipAccessibilityService { *; }
+
+# 设备管理员接收器由系统按 Manifest 声明实例化
+-keep class io.github.geekhonize.shakeoff.deviceowner.DeviceAdminReceiver { *; }
+
+# 策略实现通过枚举反射创建
+-keep class io.github.geekhonize.shakeoff.strategy.** { *; }

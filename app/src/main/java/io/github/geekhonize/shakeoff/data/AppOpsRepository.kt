@@ -1,85 +1,45 @@
 package io.github.geekhonize.shakeoff.data
 
 import android.content.Context
-import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.Build
-import io.github.geekhonize.shakeoff.util.ShizukuManager
+import io.github.geekhonize.shakeoff.monitor.AdwareMatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * 通过 appops 读取/修改目标应用的传感器权限。
+ * 应用列表加载与传感器状态查询。
  *
- * 核心命令：
- * - 查询：appops get &lt;pkg&gt; OP_MOTION_SENSORS
- * - 屏蔽：appops set &lt;pkg&gt; OP_MOTION_SENSORS ignore
- * - 恢复：appops set &lt;pkg&gt; OP_MOTION_SENSORS allow
+ * 传感器权限的读写已抽象到 [io.github.geekhonize.shakeoff.strategy.SensorControlStrategy]，
+ * 由 Shizuku / Device Owner / 无障碍三种模式分别实现。
  */
 class AppOpsRepository(private val context: Context) {
 
     companion object {
-        private const val OP_MOTION_SENSORS = "OP_MOTION_SENSORS"
         private const val SELF_PACKAGE = "io.github.geekhonize.shakeoff"
     }
 
     /**
-     * 查询指定包名的传感器权限是否已被屏蔽。
+     * 加载已安装应用列表。
      *
-     * @return true 表示已屏蔽（ignore）
-     */
-    suspend fun isBlocked(packageName: String): Boolean = withContext(Dispatchers.IO) {
-        val output = ShizukuManager.exec(
-            listOf("appops", "get", packageName, OP_MOTION_SENSORS)
-        ) ?: return@withContext false
-
-        // 输出形如 "OP_MOTION_SENSORS: ignore" 或 "OP_MOTION_SENSORS: allow"
-        output.lineSequence()
-            .firstOrNull { it.contains(OP_MOTION_SENSORS) }
-            ?.substringAfter(":")
-            ?.trim()
-            ?.equals("ignore", ignoreCase = true) == true
-    }
-
-    /**
-     * 设置指定包名的传感器权限。
-     *
-     * @param blocked true 屏蔽摇一摇，false 恢复
-     * @return 操作是否成功
-     */
-    suspend fun setBlocked(packageName: String, blocked: Boolean): Boolean =
-        withContext(Dispatchers.IO) {
-            val mode = if (blocked) "ignore" else "allow"
-            val output = ShizukuManager.exec(
-                listOf("appops", "set", packageName, OP_MOTION_SENSORS, mode)
-            )
-            output != null
-        }
-
-    /**
-     * 批量查询所有包的传感器权限状态。
-     */
-    suspend fun queryAll(packageNames: List<String>): Map<String, Boolean> =
-        withContext(Dispatchers.IO) {
-            val result = HashMap<String, Boolean>(packageNames.size)
-            for (pkg in packageNames) {
-                result[pkg] = isBlocked(pkg)
-            }
-            result
-        }
-
-    /**
-     * 加载已安装应用列表，过滤掉没有启动 Intent 的应用（后台服务/无界面组件）。
+     * 过滤规则：
+     * - 排除 ShakeOff 自身
+     * - 系统应用按开关过滤
+     * - 命中广告特征库的应用即使没有启动 Intent 也保留（很多广告 SDK 是无界面的）
+     * - 其余无启动 Intent 的应用过滤掉
      *
      * @param includeSystem 是否包含系统应用
-     * @param sensorState 传感器权限状态表，为空时默认全部未屏蔽
+     * @param sensorState 传感器权限状态表
+     * @return 应用列表，按名称排序
      */
     suspend fun loadInstalledApps(
         includeSystem: Boolean,
         sensorState: Map<String, Boolean> = emptyMap()
     ): List<AppInfo> = withContext(Dispatchers.IO) {
         val pm = context.packageManager
+        val matcher = AdwareMatcher.getInstance(context)
+
         val packages = try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 pm.getInstalledPackages(PackageManager.PackageInfoFlags.of(0L))
@@ -99,9 +59,13 @@ class AppOpsRepository(private val context: Context) {
             val isSystem = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
             if (isSystem && !includeSystem) return@mapNotNull null
 
-            // 过滤无启动 Intent 的应用
-            val launchIntent = pm.getLaunchIntentForPackage(pkg) ?: return@mapNotNull null
-            if (launchIntent == null) return@mapNotNull null
+            // 广告特征库匹配：无启动 Intent 的广告组件也要保留
+            val adEntry = matcher.match(pkg)
+            if (adEntry == null) {
+                // 非广告应用，过滤掉没有启动 Intent 的后台组件
+                val launchIntent = pm.getLaunchIntentForPackage(pkg) ?: return@mapNotNull null
+                if (launchIntent == null) return@mapNotNull null
+            }
 
             val label = try {
                 pm.getApplicationLabel(appInfo).toString()
@@ -120,8 +84,30 @@ class AppOpsRepository(private val context: Context) {
                 label = label,
                 icon = icon,
                 isSystem = isSystem,
-                sensorBlocked = sensorState[pkg] ?: false
+                sensorBlocked = sensorState[pkg] ?: false,
+                isAdware = adEntry != null,
+                adCategory = adEntry?.category.orEmpty()
             )
-        }.sortedBy { it.label.lowercase() }
+        }.sortedWith(
+            // 广告应用排前面，方便用户优先处理
+            compareByDescending<AppInfo> { it.isAdware }
+                .thenBy { it.label.lowercase() }
+        )
+    }
+
+    /**
+     * 提取设备上所有疑似广告应用包名，供监控与守护进程使用。
+     */
+    suspend fun findAdwarePackages(): List<String> = withContext(Dispatchers.IO) {
+        val pm = context.packageManager
+        val matcher = AdwareMatcher.getInstance(context)
+
+        val packages = try {
+            pm.getInstalledPackages(0)
+        } catch (e: Exception) {
+            emptyList()
+        }
+
+        packages.map { it.packageName }.filter { matcher.isAdware(it) }
     }
 }

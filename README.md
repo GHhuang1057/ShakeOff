@@ -11,15 +11,70 @@
 - 可选显示系统应用
 - 下拉刷新
 - 一键开关单个应用的传感器权限（`OP_MOTION_SENSORS`）
-- 顶部实时显示 Shizuku 状态：未安装 / 未运行 / 未授权 / 已授权
-- 未授权 Shizuku 时自动跳转系统应用详情页，引导手动关闭传感器权限
+- **三种控制模式 + 优先级自动降级**：Shizuku > Device Owner > 无障碍
+- **实时广告应用监控**：新应用安装时与本地特征库比对，命中即发通知提醒
+- **可选 Shell 守护进程**（仅 Shizuku 模式）：后台监控安装事件与广告日志
+- 顶部显示当前生效模式 Chip，降级时高亮提示
+- 广告应用在列表中带红色「广告」标签并排在最前
 - Material 3 设计，支持深色模式，Android 12+ 动态取色
+
+## 三种控制模式
+
+优先级从高到低，可用性由 `ModeManager` 在应用启动时自动探测。
+
+| 优先级 | 模式 | 实现方式 | 能力边界 |
+|---|---|---|---|
+| 1 | **Shizuku 模式** | 通过 UserService 以 shell 权限执行 `appops` | 可真正禁用/恢复传感器权限，功能最完整。需安装并授权 Shizuku |
+| 2 | **Device Owner 模式** | `DevicePolicyManager.setPermissionGrantState()` | 可管理传感器权限授予状态，但无法执行 shell 操作。需 ADB 设为设备所有者 |
+| 3 | **无障碍模式** | `AdSkipAccessibilityService` 读取节点自动点击 | 无法禁用权限，只能在广告弹出后点击「跳过」。属保底方案 |
+
+### 自动降级规则
+
+1. 取用户在设置页选择的模式
+2. 该模式可用 → 直接使用
+3. 该模式不可用 → 按优先级顺序（不高于用户期望的层级）找第一个可用模式
+4. 全部不可用 → 退回无障碍模式，并引导用户去系统设置开启
+
+降级发生时 Toast 提示「当前模式不可用，已降级为 XXX 模式」，首页模式 Chip 旁也会显示「已从 XXX 降级」。
+
+### Device Owner 配置步骤
+
+```bash
+adb shell dpm set-device-owner io.github.geekhonize.shakeoff/.DeviceAdminReceiver
+```
+
+> ⚠️ 手机**不能有已登录的账户**，否则命令会失败；必要时需恢复出厂设置后执行。
+
+### 无障碍模式配置步骤
+
+设置 → 无障碍 → 已下载的服务 → 找到「ShakeOff 广告跳过」→ 开启。
+
+## 广告应用监控
+
+- 特征库位于 `assets/adware_packages.json`，收录 55 条常见广告/追踪组件包名
+- 来源参考 [AdwareZoo](https://adware.zone) 与 [Exodus Privacy](https://exodus-privacy.eu.org) 的公开条目
+- `BroadcastReceiver` 监听 `ACTION_PACKAGE_ADDED`，新应用安装后立即匹配
+- 另用 WorkManager 每 30 分钟兜底巡检（防止进程被系统杀掉后漏检）
+- 命中后发高优先级通知，点击跳转该应用详情页
+- 开启「自动拦截」后，会通过当前生效策略自动禁用其传感器权限
+
+## Shell 守护进程（可选，仅 Shizuku 模式）
+
+脚本位于 `assets/shakeoff_monitor.sh`，部署到 `/data/local/tmp/` 后以 shell 权限运行：
+
+- `inotify` 监控 `/data/system/packages.xml` 感知安装事件
+- 每 60 秒过滤 logcat 中的广告 SDK 日志标签
+- 发现可疑活动直接执行 `appops set <包名> OP_MOTION_SENSORS ignore`
+- 事件写入 `/data/local/tmp/shakeoff_events.log`，可在「拦截记录」页查看
+
+> 实现说明：Shizuku 13.1.1 起 `Shizuku.newProcess` 已废弃并转为 private，
+> 因此改用项目内的 UserService 通道启动脚本，该通道同样以 shell 权限执行，效果等价。
 
 ## 工作原理
 
 大量国产 App 通过「摇一摇」触发广告，其底层依赖加速度传感器（`OP_MOTION_SENSORS`）。
 
-ShakeOff 借助 [Shizuku](https://github.com/RikkaApps/Shizuku) 获得 shell 权限后，执行：
+Shizuku 模式借助 [Shizuku](https://github.com/RikkaApps/Shizuku) 获得 shell 权限后，执行：
 
 ```bash
 # 查询当前状态
@@ -77,20 +132,44 @@ appops set <包名> OP_MOTION_SENSORS allow
 ## 项目结构
 
 ```
-app/src/main/java/io/github/geekhonzie/shakeoff/
+app/src/main/java/io/github/geekhonize/shakeoff/
 ├── MainActivity.kt              # 单 Activity 入口与页面导航
 ├── data/
-│   ├── AppInfo.kt               # 应用信息模型
-│   └── AppOpsRepository.kt      # appops 读写 + 应用列表加载
+│   ├── AppInfo.kt               # 应用信息模型（含 isAdware）
+│   └── AppOpsRepository.kt      # 应用列表加载 + 广告标记
+├── strategy/
+│   ├── ControlMode.kt           # 模式枚举与可用性模型
+│   ├── SensorControlStrategy.kt # 策略接口
+│   ├── ShizukuStrategy.kt       # shell 权限实现
+│   ├── DeviceOwnerStrategy.kt   # 设备管理员实现
+│   ├── AccessibilityStrategy.kt # 无障碍实现
+│   └── ModeManager.kt           # 优先级探测与自动降级
+├── monitor/
+│   ├── AdwareMatcher.kt         # 广告特征库匹配
+│   ├── AdwareMonitorReceiver.kt # 安装广播监听 + 自动拦截
+│   ├── AdwareScanWorker.kt      # WorkManager 兜底巡检
+│   ├── AdwareNotifier.kt        # 高优先级通知
+│   ├── EventLog.kt              # 拦截记录存储
+│   └── ShellDaemonManager.kt    # Shell 守护进程部署与控制
+├── deviceowner/
+│   └── DeviceAdminReceiver.kt   # 设备管理员接收器
+├── accessibility/
+│   └── AdSkipAccessibilityService.kt  # 广告跳过无障碍服务
 ├── ui/
 │   ├── MainViewModel.kt         # MVVM ViewModel
 │   ├── screens/
-│   │   ├── HomeScreen.kt        # 首页应用列表
-│   │   └── SettingsScreen.kt    # 设置页与关于页
+│   │   ├── HomeScreen.kt        # 首页应用列表 + 模式 Chip
+│   │   └── SettingsScreen.kt    # 设置页/拦截记录/关于页
 │   └── theme/                   # Material 3 主题
-└── util/
-    ├── ShizukuManager.kt        # Shizuku 状态、授权与提权执行
-    └── StatusUi.kt              # 状态文案与指示色
+├── util/
+│   ├── ShizukuManager.kt        # Shizuku 状态、授权与 UserService 提权
+│   └── StatusUi.kt              # 状态文案与指示色
+└── aidl/
+    └── ICommandService.aidl     # UserService 命令执行接口
+
+app/src/main/assets/
+├── adware_packages.json         # 广告特征库（55 条）
+└── shakeoff_monitor.sh          # Shell 守护进程脚本
 ```
 
 ## 开源许可
