@@ -118,7 +118,7 @@ class AdSkipAccessibilityService : AccessibilityService() {
                     lastInterceptTime = System.currentTimeMillis()
                     Log.i(TAG, "已拦截广告按钮")
                     EventLog.getInstance().add(
-                        packageName = "无障碍",
+                        target = "无障碍",
                         action = "点击跳过按钮",
                         success = true
                     )

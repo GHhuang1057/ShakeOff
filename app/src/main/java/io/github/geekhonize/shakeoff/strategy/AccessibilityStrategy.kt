@@ -27,23 +27,23 @@ class AccessibilityStrategy(private val context: Context) : SensorControlStrateg
     override suspend fun isAvailable(): Boolean {
         if (AdSkipAccessibilityService.isRunning) return true
 
-        val enabled = try {
-            Settings.Secure.getString(
+        val isEnabled = try {
+            val enabled = Settings.Secure.getString(
                 context.contentResolver,
                 Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-            ) ?: return false
+            )
 
-            enabled.split(":").any {
-                it.substringAfterLast("/").substringBefore(":")
-                    .equals(
-                        AdSkipAccessibilityService::class.java.name,
-                        ignoreCase = true
-                    )
-            }
+            enabled?.split(":")?.any { entry ->
+                val serviceName = entry.substringAfterLast("/").substringBefore(":")
+                serviceName.equals(
+                    AdSkipAccessibilityService::class.java.name,
+                    ignoreCase = true
+                )
+            } ?: false
         } catch (e: Exception) {
             false
         }
-        return enabled
+        return isEnabled
     }
 
     override suspend fun unavailableReason(): String = "无障碍服务未启用，请在系统设置中开启"

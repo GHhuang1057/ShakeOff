@@ -66,26 +66,28 @@ class DeviceOwnerStrategy(private val context: Context) : SensorControlStrategy 
     /**
      * 授予或撤销目标应用的传感器权限。
      */
-    override suspend fun setBlocked(packageName: String, blocked: Boolean): Boolean = try {
+    override suspend fun setBlocked(packageName: String, blocked: Boolean): Boolean {
         val manager = dpm ?: return false
-        if (!manager.isDeviceOwnerApp(context.packageName)) return false
+        return try {
+            if (!manager.isDeviceOwnerApp(context.packageName)) return false
 
-        // blocked=true 表示要屏蔽摇一摇，因此需撤销传感器权限
-        val targetState = if (blocked) {
-            PackageManager.PERMISSION_DENIED
-        } else {
-            PackageManager.PERMISSION_GRANTED
+            // blocked=true 表示要屏蔽摇一摇，因此需撤销传感器权限
+            val targetState = if (blocked) {
+                PackageManager.PERMISSION_DENIED
+            } else {
+                PackageManager.PERMISSION_GRANTED
+            }
+
+            manager.setPermissionGrantState(
+                adminReceiver,
+                packageName,
+                PERMISSION_BODY_SENSORS,
+                targetState
+            )
+            true
+        } catch (e: Exception) {
+            false
         }
-
-        manager.setPermissionGrantState(
-            adminReceiver,
-            packageName,
-            PERMISSION_BODY_SENSORS,
-            targetState
-        )
-        true
-    } catch (e: Exception) {
-        false
     }
 
     companion object {
